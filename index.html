@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Assembly Line Scheduling — Visual DP Simulator</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --muted:#9aa4b2;
+    --accent:#2dd4bf;
+    --accent-2:#60a5fa;
+    --panel:#0b1320;
+    --ok:#16a34a;
+    --bad:#ef4444;
+  }
+  body{
+    margin:0;
+    font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#071022 0%, #071126 60%);
+    color:#e6eef6;
+    padding:18px;
+  }
+  .wrap{
+    max-width:1150px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns: 430px 1fr;
+    gap:18px;
+    align-items:start;
+  }
+  h1{
+    margin:0 0 12px 0;
+    font-size:20px;
+    color:var(--accent-2);
+  }
+  .panel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+    border-radius:12px;
+    padding:14px;
+    box-shadow: 0 6px 18px rgba(4,6,12,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px;}
+  input[type=number], input[type=text]{
+    width:100%;
+    box-sizing:border-box;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.05);
+    background:rgba(255,255,255,0.02);
+    color:inherit;
+    font-size:14px;
+  }
+  .top-controls{display:flex; gap:8px; margin-bottom:12px;}
+  button{
+    background:var(--accent);
+    color:#022;
+    border:0;
+    padding:8px 12px;
+    border-radius:10px;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow: 0 6px 12px rgba(45,212,191,0.06);
+  }
+  button.secondary{
+    background:transparent;
+    color:var(--accent);
+    border:1px solid rgba(45,212,191,0.12);
+  }
+  .grid-input{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+  }
+  .small{font-size:13px; color:var(--muted);}
+  .matrix{
+    margin-top:12px;
+    display:grid;
+    gap:8px;
+  }
+  .matrix .row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .matrix .station{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    padding:8px;
+    border-radius:8px;
+    background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .matrix .station input{width:62px;}
+  .controls-row{display:flex; gap:8px; margin-top:12px; align-items:center;}
+  .viewer{
+    min-height:520px;
+    display:flex;
+    flex-direction:column;
+  }
+  .svg-wrap{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+    margin-bottom:10px;
+    border-radius:12px;
+    padding:12px;
+  }
+  svg{width:100%; height:260px; overflow:visible;}
+  .legend{display:flex; gap:10px; margin-top:6px; color:var(--muted); font-size:13px;}
+  .dp-tables{
+    display:flex;
+    gap:10px;
+    margin-top:10px;
+    align-items:flex-start;
+  }
+  table{border-collapse:collapse; background:rgba(255,255,255,0.02); border-radius:8px; overflow:hidden;}
+  th, td{padding:8px 10px; font-size:13px; text-align:center; border-right:1px solid rgba(255,255,255,0.02);}
+  th:last-child, td:last-child{border-right:none;}
+  th{background:rgba(255,255,255,0.02); color:var(--muted);}
+  td.selected{background:rgba(96,165,250,0.13); color:var(--accent-2); font-weight:700;}
+  td.small{font-size:12px; color:var(--muted);}
+  .result{
+    margin-top:12px;
+    padding:10px;
+    border-radius:8px;
+    background:linear-gradient(90deg, rgba(45,212,191,0.04), rgba(96,165,250,0.03));
+    color:#dff3f0;
+    font-weight:700;
+  }
+  .controls-bottom{display:flex; gap:8px; margin-top:12px; align-items:center;}
+  .play-controls{display:flex; gap:6px; align-items:center;}
+  .small-muted{font-size:12px; color:var(--muted);}
+  .station-box{rx:8; fill:rgba(255,255,255,0.02); stroke:rgba(255,255,255,0.04);}
+  .station-label{font-size:12px; fill:var(--muted);}
+  .station-time{font-size:13px; fill:#e6eef6; font-weight:700;}
+  .highlight{fill:rgba(96,165,250,0.22); stroke:rgba(96,165,250,0.65); stroke-width:2;}
+  .path-line{stroke:var(--accent-2); stroke-width:3; fill:none; stroke-linecap:round;}
+  .node-dot{fill:var(--accent-2); stroke:#021728; stroke-width:1.5;}
+  .transfer-line{stroke:rgba(255,255,255,0.06); stroke-dasharray:4 4;}
+  .hint{font-size:12px; color:var(--muted);}
+  footer{margin-top:18px; color:var(--muted); font-size:13px; text-align:center;}
+  @media (max-width:980px){
+    .wrap{grid-template-columns: 1fr; padding:8px;}
+    .svg-wrap{height:300px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Assembly Line Scheduler — Visual DP 🔨🤖🔧</h1>
+    <div class="top-controls">
+      <div style="flex:1;">
+        <label class="small">Number of stations (n)</label>
+        <input id="numStations" type="number" min="2" max="12" value="6">
+      </div>
+      <div style="width:150px">
+        <label class="small">Preset</label>
+        <select id="presetSelect" style="width:100%; padding:8px; border-radius:8px; background:rgba(255,255,255,0.02); color:inherit; border:1px solid rgba(255,255,255,0.03)">
+          <option value="classic">Classic example</option>
+          <option value="random">Random</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="matrix" id="matrixInputs">
+      <!-- dynamic per station generated here -->
+    </div>
+
+    <div class="controls-row">
+      <button id="computeBtn">Compute Optimal Path</button>
+      <button id="randomBtn" class="secondary">Randomize</button>
+      <button id="resetBtn" class="secondary">Reset</button>
+      <div style="flex:1"></div>
+      <div style="width:140px">
+        <label class="small">Entry / Exit</label>
+        <div style="display:flex; gap:6px;">
+          <input id="e1" type="number" placeholder="e1" value="2">
+          <input id="e2" type="number" placeholder="e2" value="4">
+          <input id="x1" type="number" placeholder="x1" value="3">
+          <input id="x2" type="number" placeholder="x2" value="2">
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div class="small-muted">Legend</div>
+      <div class="legend">
+        <div style="display:flex; align-items:center; gap:6px;"><svg width="18" height="10"><rect width="18" height="10" rx="4" fill="#60a5fa" /></svg> chosen path</div>
+        <div style="display:flex; align-items:center; gap:6px;"><svg width="18" height="10"><rect width="18" height="10" rx="4" fill="#2dd4bf" /></svg> entry/exit</div>
+        <div style="display:flex; align-items:center; gap:6px;"><svg width="18" height="10"><rect width="18" height="10" rx="4" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)"/></svg> stations</div>
+      </div>
+    </div>
+
+    <div class="controls-bottom">
+      <div class="play-controls">
+        <button id="prevStep" class="secondary">◀ Prev</button>
+        <button id="playPause" class="secondary">Play ▶</button>
+        <button id="nextStep" class="secondary">Next ▶</button>
+        <div style="width:12px"></div>
+        <div class="small-muted">Step:</div>
+        <div id="stepIndicator" class="small-muted" style="min-width:26px; text-align:center;">0</div>
+      </div>
+
+      <div style="flex:1"></div>
+      <div style="text-align:right" class="small-muted">Tip: change numbers and press Compute</div>
+    </div>
+  </div>
+
+  <div class="panel viewer">
+    <div class="svg-wrap">
+      <svg id="diagram" viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- dynamic drawing -->
+      </svg>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <div style="flex:1;">
+        <div class="small-muted">DP tables</div>
+        <div class="dp-tables" id="dpTables">
+          <!-- f1/f2 tables -->
+        </div>
+      </div>
+      <div style="width:360px;">
+        <div class="small-muted">Result</div>
+        <div class="result" id="resultBox">No computation yet. Enter values and hit Compute.</div>
+      </div>
+    </div>
+
+    <footer>Built with dynamic programming — classic two-line assembly scheduling. 🔁</footer>
+  </div>
+</div>
+
+<script>
+/*
+  Assembly Line Scheduling Visual Simulator
+  - Two lines, n stations
+  - Inputs:
+     a1[j], a2[j] for j=1..n
+     t1[j], t2[j] for j=1..n-1
+     e1, e2 entry times
+     x1, x2 exit times
+  - DP:
+     f1[1] = e1 + a1[1]
+     f2[1] = e2 + a2[1]
+     for j=2..n:
+       if f1[j-1] + a1[j] <= f2[j-1] + t2[j-1] + a1[j]:
+         f1[j] = f1[j-1] + a1[j], line1Prev[j]=1
+       else:
+         f1[j] = f2[j-1] + t2[j-1] + a1[j], line1Prev[j]=2
+       (similarly for f2[j])
+     final:
+       if f1[n] + x1 <= f2[n] + x2: best = f1[n] + x1, lastLine=1 else lastLine=2
+     backtrack path
+*/
+
+const el = id => document.getElementById(id);
+
+let n = parseInt(el('numStations').value,10);
+let state = {
+  a1: [], a2: [],
+  t1: [], t2: [],
+  e1:2, e2:4, x1:3, x2:2,
+  f1:[], f2:[], linePrev1:[], linePrev2:[],
+  bestTime:null, bestPath:[], lastLine:null
+};
+
+function createInputs(nStations, preset='classic'){
+  n = nStations;
+  const container = el('matrixInputs');
+  container.innerHTML = '';
+  // header row
+  const header = document.createElement('div');
+  header.style.display='flex';
+  header.style.justifyContent='space-between';
+  header.style.alignItems='center';
+  header.style.marginBottom='6px';
+  header.innerHTML = '<div style="font-weight:700">Station inputs</div><div class="hint">a1 / a2 = processing times. t1,t2 = transfers (j→j+1)</div>';
+  container.appendChild(header);
+
+  // create station rows
+  for(let j=1;j<=n;j++){
+    const row = document.createElement('div');
+    row.className='row';
+    // station box
+    const st = document.createElement('div');
+    st.className='station';
+    st.innerHTML = `<div style="min-width:34px; text-align:center; font-weight:700">S${j}</div>
+      <div style="display:flex; gap:6px;">
+        <div style="display:flex;flex-direction:column;">
+          <label class="small">a1[${j}]</label>
+          <input data-which="a1" data-i="${j}" type="number" value="${preset==='classic'? defaultValuesFor(preset,'a1',j) : 7}" step="1">
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <label class="small">a2[${j}]</label>
+          <input data-which="a2" data-i="${j}" type="number" value="${preset==='classic'? defaultValuesFor(preset,'a2',j) : 9}" step="1">
+        </div>
+      </div>`;
+    row.appendChild(st);
+
+    // transfer inputs for j if j<n
+    if(j < n){
+      const transfer = document.createElement('div');
+      transfer.style.display='flex';
+      transfer.style.gap='8px';
+      transfer.innerHTML = `
+        <div style="display:flex;flex-direction:column;">
+          <label class="small">t1[${j}] (1→2)</label>
+          <input data-which="t1" data-i="${j}" type="number" value="${preset==='classic'? defaultValuesFor(preset,'t1',j) : 2}" step="1">
+        </div>
+        <div style="display:flex;flex-direction:column;">
+          <label class="small">t2[${j}] (2→1)</label>
+          <input data-which="t2" data-i="${j}" type="number" value="${preset==='classic'? defaultValuesFor(preset,'t2',j) : 3}" step="1">
+        </div>`;
+      row.appendChild(transfer);
+    } else {
+      // filler
+      const filler = document.createElement('div');
+      filler.style.flex='1';
+      row.appendChild(filler);
+    }
+
+    container.appendChild(row);
+  }
+
+  // populate state arrays from inputs
+  syncStateFromInputs();
+  // attach listeners to number inputs to update state live
+  [...container.querySelectorAll('input')].forEach(inp => {
+    inp.addEventListener('input', () => {
+      syncStateFromInputs();
+      drawDiagram(); // update
+    });
+  });
+}
+
+function defaultValuesFor(preset,type,j){
+  // classic example (from algorithm textbooks)
+  // example uses n=6:
+  const classic = {
+    a1: [7,9,3,4,8,4],
+    a2: [8,5,6,4,5,7],
+    t1: [2,3,1,3,4],
+    t2: [2,1,2,2,1],
+    e1: 2, e2: 4, x1:3, x2:2
+  };
+  if(preset!=='classic') return 7;
+  if(type==='a1') return classic.a1[j-1] ?? 7;
+  if(type==='a2') return classic.a2[j-1] ?? 9;
+  if(type==='t1') return classic.t1[j-1] ?? 2;
+  if(type==='t2') return classic.t2[j-1] ?? 3;
+  return 0;
+}
+
+function syncStateFromInputs(){
+  const container = el('matrixInputs');
+  const inputs = [...container.querySelectorAll('input')];
+  state.a1 = Array(n+1).fill(0);
+  state.a2 = Array(n+1).fill(0);
+  state.t1 = Array(n+1).fill(0);
+  state.t2 = Array(n+1).fill(0);
+  inputs.forEach(inp => {
+    const which = inp.dataset.which;
+    const idx = parseInt(inp.dataset.i,10);
+    const val = Number(inp.value) || 0;
+    if(which === 'a1') state.a1[idx] = val;
+    if(which === 'a2') state.a2[idx] = val;
+    if(which === 't1') state.t1[idx] = val;
+    if(which === 't2') state.t2[idx] = val;
+  });
+  state.e1 = Number(el('e1').value) || 0;
+  state.e2 = Number(el('e2').value) || 0;
+  state.x1 = Number(el('x1').value) || 0;
+  state.x2 = Number(el('x2').value) || 0;
+}
+
+// drawing diagram
+function drawDiagram(highlightPath=[], stepIdx=0){
+  const svg = el('diagram');
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  // layout
+  const width = 980;
+  const height = 260;
+  const margin=30;
+  const topY = 60;
+  const bottomY = 160;
+  const gapX = (width - margin*2) / Math.max(1,n-1);
+  // draw lines for each row
+  for(let line=1; line<=2; line++){
+    // draw station boxes
+    for(let j=1;j<=n;j++){
+      const x = margin + (j-1)*gapX;
+      const y = (line===1)? topY : bottomY;
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('transform',`translate(${x},${y})`);
+      // box
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',0);
+      rect.setAttribute('y',0);
+      rect.setAttribute('rx',8);
+      rect.setAttribute('width',120);
+      rect.setAttribute('height',46);
+      rect.setAttribute('class','station-box');
+      rect.setAttribute('fill','rgba(255,255,255,0.02)');
+      rect.setAttribute('stroke','rgba(255,255,255,0.03)');
+      rect.setAttribute('stroke-width','1');
+      g.appendChild(rect);
+
+      // station label
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x',8); label.setAttribute('y',14);
+      label.setAttribute('class','station-label');
+      label.textContent = `Line ${line} - S${j}`;
+      g.appendChild(label);
+
+      // time text
+      const timeText = document.createElementNS('http://www.w3.org/2000/svg','text');
+      timeText.setAttribute('x',8); timeText.setAttribute('y',34);
+      timeText.setAttribute('class','station-time');
+      const aVal = (line===1)? state.a1[j] : state.a2[j];
+      timeText.textContent = `a${line}[${j}] = ${aVal}`;
+      g.appendChild(timeText);
+
+      // highlight if part of chosen path at current step
+      const isHighlight = highlightPath[stepIdx] && highlightPath[stepIdx].line===line && highlightPath[stepIdx].station===j;
+      if(isHighlight){
+        rect.setAttribute('class','highlight');
+        rect.setAttribute('fill','rgba(96,165,250,0.18)');
+        rect.setAttribute('stroke','rgba(96,165,250,0.7)');
+      }
+
+      // append
+      svg.appendChild(g);
+
+      // small dot for the node (center right)
+      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx', x + 120 - 6);
+      dot.setAttribute('cy', y + 23);
+      dot.setAttribute('r',4);
+      dot.setAttribute('class','node-dot');
+      svg.appendChild(dot);
+
+      // draw connection to next if j<n
+      if(j<n){
+        const x2 = margin + (j)*gapX;
+        const y2 = y;
+        const lineEl = document.createElementNS('http://www.w3.org/2000/svg','line');
+        lineEl.setAttribute('x1', x + 120 - 6);
+        lineEl.setAttribute('y1', y + 23);
+        lineEl.setAttribute('x2', x2 + 6);
+        lineEl.setAttribute('y2', y2 + 23);
+        lineEl.setAttribute('stroke','rgba(255,255,255,0.03)');
+        svg.appendChild(lineEl);
+      }
+
+      // if j<n, draw transfer lines to opposite line
+      if(j<n){
+        const xT = x + 120 - 20;
+        const yT = y + 26 * (line===1?1:-1); // approximate
+        const xNext = x + gapX + 6;
+        const yOther = (line===1)? bottomY + 23 : topY + 23;
+        const tline = document.createElementNS('http://www.w3.org/2000/svg','line');
+        tline.setAttribute('x1', x + 120 - 6);
+        tline.setAttribute('y1', y + 23);
+        tline.setAttribute('x2', x + gapX + 6);
+        tline.setAttribute('y2', (line===1)? bottomY+23 : topY+23);
+        tline.setAttribute('class','transfer-line');
+        tline.setAttribute('stroke','rgba(255,255,255,0.03)');
+        svg.appendChild(tline);
+
+        // add small transfer label
+        const tlabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+        tlabel.setAttribute('x', x + gapX/2 + 20);
+        tlabel.setAttribute('y', (line===1)? y + 70 : y - 18);
+        tlabel.setAttribute('class','station-label');
+        const tVal = (line===1)? state.t1[j] : state.t2[j];
+        tlabel.textContent = `t${line}[${j}]=${tVal}`;
+        svg.appendChild(tlabel);
+      }
+    }
+  }
+
+  // draw path lines if highlightPath non-empty (full optimal)
+  if(highlightPath && highlightPath.length > 0){
+    const pathPoints = [];
+    for(let k=0;k<highlightPath.length;k++){
+      const item = highlightPath[k];
+      const x = margin + (item.station-1)*gapX;
+      const y = (item.line===1)? topY : bottomY;
+      const cx = x + 60; // center of the box (0 + 120/2)
+      const cy = y + 23;
+      pathPoints.push([cx,cy]);
+    }
+    // draw polyline
+    if(pathPoints.length>0){
+      const d = pathPoints.map((p,i)=> (i===0?`M ${p[0]} ${p[1]}`:`L ${p[0]} ${p[1]}`)).join(' ');
+      const pathEl = document.createElementNS('http://www.w3.org/2000/svg','path');
+      pathEl.setAttribute('d', d);
+      pathEl.setAttribute('class','path-line');
+      svg.appendChild(pathEl);
+    }
+  }
+}
+
+// DP compute
+function computeDP(){
+  syncStateFromInputs();
+  const a1 = state.a1.slice();
+  const a2 = state.a2.slice();
+  const t1 = state.t1.slice();
+  const t2 = state.t2.slice();
+  const e1 = state.e1, e2 = state.e2, x1 = state.x1, x2 = state.x2;
+  const f1 = Array(n+1).fill(Infinity);
+  const f2 = Array(n+1).fill(Infinity);
+  const linePrev1 = Array(n+1).fill(1);
+  const linePrev2 = Array(n+1).fill(2);
+
+  // base
+  f1[1] = e1 + a1[1];
+  f2[1] = e2 + a2[1];
+  linePrev1[1] = 1;
+  linePrev2[1] = 2;
+
+  // compute
+  for(let j=2;j<=n;j++){
+    // compute f1[j]
+    const stay1 = f1[j-1] + a1[j];
+    const from2 = f2[j-1] + t2[j-1] + a1[j];
+    if(stay1 <= from2){
+      f1[j] = stay1;
+      linePrev1[j] = 1;
+    } else {
+      f1[j] = from2;
+      linePrev1[j] = 2;
+    }
+    // compute f2[j]
+    const stay2 = f2[j-1] + a2[j];
+    const from1 = f1[j-1] + t1[j-1] + a2[j];
+    if(stay2 <= from1){
+      f2[j] = stay2;
+      linePrev2[j] = 2;
+    } else {
+      f2[j] = from1;
+      linePrev2[j] = 1;
+    }
+  }
+
+  // final exit
+  const final1 = f1[n] + x1;
+  const final2 = f2[n] + x2;
+  let bestTime, lastLine;
+  if(final1 <= final2){ bestTime = final1; lastLine = 1; } else { bestTime = final2; lastLine = 2; }
+
+  // backtrack
+  const path = Array(n+1);
+  let line = lastLine;
+  for(let j=n;j>=1;j--){
+    path[j] = {line:line, station:j};
+    if(line===1){
+      line = linePrev1[j];
+    } else {
+      line = linePrev2[j];
+    }
+  }
+
+  // store in state
+  state.f1 = f1; state.f2 = f2;
+  state.linePrev1 = linePrev1; state.linePrev2 = linePrev2;
+  state.bestTime = bestTime; state.bestPath = path; state.lastLine = lastLine;
+
+  // display DP tables and path
+  renderDPTables();
+  renderResult();
+  drawDiagram(path.slice(1).map(x=>x)); // convert to 0-based indexing removal; draw full path
+  resetPlayback(); // step controller
+}
+
+// render DP tables
+function renderDPTables(){
+  const dp = el('dpTables');
+  dp.innerHTML = '';
+  // create table for f1
+  const table1 = document.createElement('table');
+  const trh1 = document.createElement('tr');
+  trh1.innerHTML = `<th>j</th>${Array.from({length:n},(_,i)=>`<th>${i+1}</th>`).join('')}`;
+  table1.appendChild(trh1);
+  const trf1 = document.createElement('tr');
+  trf1.innerHTML = `<th>f1[j]</th>${Array.from({length:n},(_,i)=>`<td>${formatNum(state.f1[i+1])}</td>`).join('')}`;
+  table1.appendChild(trf1);
+  const trp1 = document.createElement('tr');
+  trp1.innerHTML = `<th>prev</th>${Array.from({length:n},(_,i)=>`<td class="small">${state.linePrev1[i+1]||'-'}</td>`).join('')}`;
+  table1.appendChild(trp1);
+  dp.appendChild(table1);
+
+  // table for f2
+  const table2 = document.createElement('table');
+  const trh2 = document.createElement('tr');
+  trh2.innerHTML = `<th>j</th>${Array.from({length:n},(_,i)=>`<th>${i+1}</th>`).join('')}`;
+  table2.appendChild(trh2);
+  const trf2 = document.createElement('tr');
+  trf2.innerHTML = `<th>f2[j]</th>${Array.from({length:n},(_,i)=>`<td>${formatNum(state.f2[i+1])}</td>`).join('')}`;
+  table2.appendChild(trf2);
+  const trp2 = document.createElement('tr');
+  trp2.innerHTML = `<th>prev</th>${Array.from({length:n},(_,i)=>`<td class="small">${state.linePrev2[i+1]||'-'}</td>`).join('')}`;
+  table2.appendChild(trp2);
+  dp.appendChild(table2);
+}
+
+function formatNum(x){
+  if(x === undefined || x === null || !isFinite(x)) return '-';
+  return String(x);
+}
+
+function renderResult(){
+  const box = el('resultBox');
+  if(state.bestTime == null){
+    box.textContent = 'No computation yet.';
+    return;
+  }
+  const pathStr = state.bestPath.slice(1).map(p => `L${p.line}:S${p.station}`).join(' → ');
+  box.innerHTML = `<div>Total minimum time: <span style="color:#021728; background:#60a5fa; padding:4px 8px; border-radius:6px; font-weight:800; margin-left:8px">${state.bestTime}</span></div>
+                   <div style="margin-top:8px; color:var(--muted)">Path: <strong style="color:#dff3f0">${pathStr}</strong></div>`;
+}
+
+/* Playback controls to step through path */
+let playTimer = null;
+let currentStep = 0;
+function resetPlayback(){
+  currentStep = 0;
+  el('stepIndicator').textContent = currentStep;
+  pausePlay();
+  // draw initial highlight (0 meaning nothing selected)
+  drawDiagram([], 0);
+}
+function playPlay(){
+  if(!state.bestPath || state.bestPath.length<=1) return;
+  if(playTimer) return;
+  el('playPause').textContent = 'Pause ⏸';
+  playTimer = setInterval(()=>{
+    nextStep();
+  }, 700);
+}
+function pausePlay(){
+  if(playTimer){ clearInterval(playTimer); playTimer = null; }
+  el('playPause').textContent = 'Play ▶';
+}
+function nextStep(){
+  if(!state.bestPath || state.bestPath.length<=1) return;
+  if(currentStep >= n){
+    pausePlay();
+    return;
+  }
+  currentStep++;
+  el('stepIndicator').textContent = currentStep;
+  // draw diagram highlighting up to currentStep
+  const path = state.bestPath.slice(1); // 1..n
+  // For visualization, we will pass an array and stepIdx to drawDiagram which highlights single station at current step
+  drawDiagram(path, currentStep-1);
+}
+function prevStep(){
+  if(currentStep <= 0) return;
+  currentStep--;
+  el('stepIndicator').textContent = currentStep;
+  const path = state.bestPath.slice(1);
+  if(currentStep===0){
+    drawDiagram([],0);
+  } else {
+    drawDiagram(path, currentStep-1);
+  }
+}
+
+function setupEventHandlers(){
+  el('numStations').addEventListener('change', e=>{
+    const v = parseInt(e.target.value,10) || 6;
+    createInputs(Math.max(2, Math.min(12,v)), el('presetSelect').value);
+    drawDiagram();
+  });
+  el('presetSelect').addEventListener('change', e=>{
+    createInputs(n, e.target.value);
+    if(e.target.value === 'random') randomizeValues();
+  });
+  el('computeBtn').addEventListener('click', ()=>{
+    computeDP();
+  });
+  el('randomBtn').addEventListener('click', ()=>{
+    randomizeValues();
+  });
+  el('resetBtn').addEventListener('click', ()=>{
+    createInputs(n,'classic');
+    el('e1').value = 2; el('e2').value = 4; el('x1').value = 3; el('x2').value = 2;
+    syncStateFromInputs();
+    drawDiagram();
+    el('resultBox').textContent = 'Reset to default values.';
+  });
+  el('playPause').addEventListener('click', ()=>{
+    if(playTimer) pausePlay(); else playPlay();
+  });
+  el('nextStep').addEventListener('click', nextStep);
+  el('prevStep').addEventListener('click', prevStep);
+
+  // update entry/exit fields live
+  ['e1','e2','x1','x2'].forEach(id=>{
+    el(id).addEventListener('input', ()=>{
+      syncStateFromInputs();
+      drawDiagram();
+    });
+  });
+}
+
+function randomizeValues(){
+  // random reasonable values
+  for(let j=1;j<=n;j++){
+    const a1 = randInt(1,12);
+    const a2 = randInt(1,12);
+    const inpA1 = document.querySelector(`input[data-which="a1"][data-i="${j}"]`);
+    const inpA2 = document.querySelector(`input[data-which="a2"][data-i="${j}"]`);
+    if(inpA1) inpA1.value = a1;
+    if(inpA2) inpA2.value = a2;
+    if(j < n){
+      const t1 = randInt(1,5);
+      const t2 = randInt(1,5);
+      const inpT1 = document.querySelector(`input[data-which="t1"][data-i="${j}"]`);
+      const inpT2 = document.querySelector(`input[data-which="t2"][data-i="${j}"]`);
+      if(inpT1) inpT1.value = t1;
+      if(inpT2) inpT2.value = t2;
+    }
+  }
+  el('e1').value = randInt(0,5);
+  el('e2').value = randInt(0,5);
+  el('x1').value = randInt(0,5);
+  el('x2').value = randInt(0,5);
+  syncStateFromInputs();
+  drawDiagram();
+}
+
+function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+/* initialization */
+(function init(){
+  createInputs(n, 'classic');
+  setupEventHandlers();
+  drawDiagram();
+  // prefill state with defaults
+  // set entry/exit defaults if classic
+  el('e1').value = 2; el('e2').value = 4; el('x1').value = 3; el('x2').value = 2;
+  syncStateFromInputs();
+})();
+
+</script>
+</body>
+</html>
